@@ -1,0 +1,57 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Feed — cubby</title>
+  <link rel="stylesheet" href="{% static 'css/feed.css' %}">
+</head>
+<body>
+  <div class="feed-layout">
+    <nav class="feed-nav-vertical">
+      <div class="feed-nav-title">--- where to ↓</div>
+      <a href="/users/{{ request.user.username }}/">profile</a>
+      <a href="#" id="showPostFormLink">start a post...</a>
+      <a href="#" id="cancelPostNavLink" class="hidden-form">cancel</a>
+    </nav>
+    <div class="feed-main">
+      <h1 class="feed-title feed-title-margin">
+        <span>what's</span> <span class="hover-italic">everyone</span> <span class="hover-underline">working</span> <span>on?</span>
+      </h1>
+      <h2 class="weekly-stats-title">--- my weekly stats</h2>
+      <div class="weekly-stats">
+        <div class="stat-box project-style">
+          <div class="stat-label">most worked on</div>
+          <div class="stat-value">math</div>
+        </div>
+        <div class="stat-box project-style">
+          <div class="stat-label">total time studied</div>
+          <div class="stat-value">12.5 hrs</div>
+        </div>
+        <div class="stat-box project-style">
+          <div class="stat-label">streak</div>
+          <div class="stat-value">5 days</div>
+        </div>
+      </div>
+
+      <h2 class="feed-friends-title">--- your friends</h2>
+      <form id="postForm" method="post" class="hidden-form">
+        {% csrf_token %}
+        <input type="text" id="topic" placeholder="top focus (e.g. stats)" required>
+        <input type="number" id="timeSpent" placeholder="time spent in hours (e.g. 2.5)" step="0.1" min="0" pattern="^\\d+(\\.\\d)?$" required>
+        <textarea id="content" placeholder="caption..." required></textarea>
+        <div class="post-form-actions">
+          <button type="submit" class="post-form-btn">post</button>
+          <button type="button" id="cancelPostBtn" class="post-form-btn cancel-btn">cancel</button>
+        </div>
+      </form>
+
+      <div id="feed" class="feed"></div>
+    </div>
+  </div>
+  <script>
+    const username = "{{ request.user.username }}";
+  </script>
+  <script src="{% static 'js/feed.js' %}"></script>
+</body>
+</html>

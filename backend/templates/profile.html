@@ -1,0 +1,224 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{{ username }} — cubby</title>
+  <link rel="stylesheet" href="{% static 'css/profile.css' %}" />
+  <link rel="icon" type="image/png" href="{% static 'img/favicon.png' %}" />
+</head>
+<body>
+  <nav class="feed-nav">
+    <div class="container">
+      <a href="/feed/">feed</a>
+    </div>
+  </nav>
+  <div class="container">
+    <div class="profile">
+      <img id="avatar" src="https://via.placeholder.com/100" alt="profile picture" />
+
+      <h1 id="fullname">loading...</h1>
+      <div id="username">@loading</div>
+      <p id="bio" class="bio">loading...</p>
+
+      <button id="editProfileBtn">edit profile</button>
+      <form id="editProfileForm" class="profile-edit-form">
+        <label for="editProfileImage">profile picture</label>
+        <div class="image-upload-section">
+          <img id="editProfileImagePreview" src="https://via.placeholder.com/100" alt="profile preview" />
+          <div class="image-upload-buttons">
+            <button type="button" id="customFileBtn">choose image</button>
+            <button type="button" id="removeProfileImageBtn">remove</button>
+          </div>
+        </div>
+        <input type="file" id="editProfileImage" accept="image/*" style="display: none;" />
+        
+        <label for="editFirstName">first name</label>
+        <input type="text" id="editFirstName" placeholder="first name" />
+        
+        <label for="editLastName">last name</label>
+        <input type="text" id="editLastName" placeholder="last name" />
+        
+        <label for="editBio">bio</label>
+        <textarea id="editBio" placeholder="bio" rows="3"></textarea>
+        
+        <button type="submit">save</button>
+        <button type="button" id="cancelEditBtn">cancel</button>
+      </form>
+
+      <div class="follows">
+        <span><strong id="follower_count">0</strong> followers</span>
+        <span class="divider">|</span>
+        <span><strong id="following_count">0</strong> following</span>
+      </div>
+    </div>
+  </div>
+
+  <script>   
+    const username = "{{ username }}";
+    if (!username) {
+      document.body.innerHTML = "<p style='text-align:center;'>User not found (no username in URL).</p>";
+      throw new Error('No username provided');
+    }
+
+    fetch(`/user_data/${username}/`)
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById("fullname").innerText = (data.first_name || "") + (data.last_name ? (" " + data.last_name) : "");
+        document.getElementById("username").innerText = data.username ? `@${data.username}` : "@" + username;
+        document.getElementById("bio").innerText = data.bio || "no bio yet";
+        document.getElementById("avatar").src = data.profile_image || "https://via.placeholder.com/100";
+        document.getElementById("editProfileImagePreview").src = data.profile_image || "https://via.placeholder.com/100";
+        document.getElementById("following_count").innerText = data.following_count ?? 0;
+        document.getElementById("follower_count").innerText = data.follower_count ?? 0;
+        // Pre-fill edit form
+        document.getElementById("editFirstName").value = data.first_name || "";
+        document.getElementById("editLastName").value = data.last_name || "";
+        document.getElementById("editBio").value = data.bio || "";
+      })
+      .catch(err => {
+        console.error(err);
+        document.body.innerHTML = "<p style='text-align:center;'>User not found.</p>";
+      });
+
+    // Edit Profile button logic
+    document.getElementById("editProfileBtn").onclick = function() {
+      document.getElementById("editProfileForm").style.display = "flex";
+      this.style.display = "none";
+    };
+    document.getElementById("cancelEditBtn").onclick = function() {
+      document.getElementById("editProfileForm").style.display = "none";
+      document.getElementById("editProfileBtn").style.display = "inline-block";
+    };
+
+    // Profile image preview and remove logic
+    document.getElementById("customFileBtn").onclick = function() {
+      document.getElementById("editProfileImage").click();
+    };
+    document.getElementById("editProfileImage").onchange = function(e) {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          document.getElementById("editProfileImagePreview").src = evt.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+    const profileForm = document.getElementById("editProfileForm");
+    let is_image_removed = false;
+    profileForm.removeAttribute("data-remove-image");
+    const GREEN_SVG = 'data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20width%3D%27100%27%20height%3D%27100%27%3E%3Ccircle%20cx%3D%2750%27%20cy%3D%2750%27%20r%3D%2750%27%20fill%3D%27%236be38f%27/%3E%3C/svg%3E';
+    document.getElementById("removeProfileImageBtn").onclick = function() {
+      const svgWithTimestamp = GREEN_SVG + '?t=' + Date.now();
+      document.getElementById("editProfileImagePreview").src = svgWithTimestamp;
+      document.getElementById("avatar").src = svgWithTimestamp;
+      document.getElementById("editProfileImage").value = "";
+      is_image_removed = true;
+      profileForm.setAttribute("data-remove-image", "true");
+    };
+
+    // Handle profile edit form submission
+    document.getElementById("editProfileForm").onsubmit = function(e) {
+      e.preventDefault();
+      const first_name = document.getElementById("editFirstName").value;
+      const last_name = document.getElementById("editLastName").value;
+      const bio = document.getElementById("editBio").value;
+      const profile_image_input = document.getElementById("editProfileImage");
+      let profile_image = null;
+      // Always send remove_image flag if set
+      const remove_image_flag = is_image_removed ? 'true' : 'false';
+      if (profile_image_input.files && profile_image_input.files[0] && !is_image_removed) {
+        const file = profile_image_input.files[0];
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          fetch("/api/update_profile/", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRFToken": getCSRFToken()
+            },
+            credentials: "include",
+            body: JSON.stringify({ first_name, last_name, bio, profile_image: evt.target.result, remove_image: remove_image_flag })
+          })
+          .then(res => res.json())
+          .then(data => {
+            if (data.success) {
+              document.getElementById("fullname").innerText = (data.first_name || "") + (data.last_name ? (" " + data.last_name) : "");
+              document.getElementById("bio").innerText = data.bio || "no bio yet";
+              document.getElementById("editProfileForm").style.display = "none";
+              document.getElementById("editProfileBtn").style.display = "inline-block";
+              // After save, if the returned image is the SVG, append a timestamp to force refresh
+              let newImg = data.profile_image;
+              if (newImg && newImg.startsWith('data:image/svg+xml')) {
+                newImg += '?t=' + Date.now();
+              }
+              document.getElementById("avatar").src = '';
+              document.getElementById("editProfileImagePreview").src = '';
+              setTimeout(() => {
+                document.getElementById("avatar").src = newImg;
+                document.getElementById("editProfileImagePreview").src = newImg;
+              }, 10);
+              document.getElementById("avatar").onerror = function() {
+                this.src = 'data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20width%3D%27100%27%20height%3D%27100%27%3E%3Ccircle%20cx%3D%2750%27%20cy%3D%2750%27%20r%3D%2750%27%20fill%3D%27%236be38f%27/%3E%3C/svg%3E';
+              };
+              document.getElementById("editProfileImagePreview").onerror = function() {
+                this.src = 'data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20width%3D%27100%27%20height%3D%27100%27%3E%3Ccircle%20cx%3D%2750%27%20cy%3D%2750%27%20r%3D%2750%27%20fill%3D%27%236be38f%27/%3E%3C/svg%3E';
+              };
+              profileForm.removeAttribute("data-remove-image");
+              is_image_removed = false;
+            } else {
+              alert("Failed to update profile.");
+            }
+          })
+          .catch(() => alert("Failed to update profile."));
+        };
+        reader.readAsDataURL(file);
+        return;
+      }
+      // If no new image, just send the rest
+      fetch("/api/update_profile/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": getCSRFToken()
+        },
+        credentials: "include",
+        body: JSON.stringify({ first_name, last_name, bio, profile_image: null, remove_image: remove_image_flag })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          document.getElementById("fullname").innerText = (data.first_name || "") + (data.last_name ? (" " + data.last_name) : "");
+          document.getElementById("bio").innerText = data.bio || "no bio yet";
+          document.getElementById("editProfileForm").style.display = "none";
+          document.getElementById("editProfileBtn").style.display = "inline-block";
+          document.getElementById("avatar").src = data.profile_image;
+          document.getElementById("editProfileImagePreview").src = data.profile_image;
+          profileForm.removeAttribute("data-remove-image");
+          is_image_removed = false;
+        } else {
+          alert("Failed to update profile.");
+        }
+      })
+      .catch(() => alert("Failed to update profile."));
+    };
+
+    // Add auto-grow for bio textarea
+    document.getElementById("editBio").addEventListener('input', function() {
+      this.style.height = 'auto';
+      this.style.height = (this.scrollHeight) + 'px';
+    });
+
+    // Utility: CSRF token
+    function getCSRFToken() {
+      const name = "csrftoken";
+      const cookieValue = document.cookie.split('; ')
+        .find(row => row.startsWith(name + '='))
+        ?.split('=')[1];
+      return cookieValue;
+    }
+  </script>
+</body>
+</html>

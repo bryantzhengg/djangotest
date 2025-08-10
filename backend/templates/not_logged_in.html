@@ -1,0 +1,19 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sign In Required — cubby</title>
+  <link rel="stylesheet" href="{% static 'css/not_logged_in.css' %}">
+</head>
+<body>
+  <div class="container">
+    <h1>please log in or sign up to continue</h1>
+    <div class="links">
+      <a href="{% url 'login' %}">log in</a>
+      <a href="{% url 'signup' %}">sign up</a>
+    </div>
+  </div>
+</body>
+</html> 
